@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h2>Conversation History</h2>
+        <ul>
+            {% for chat in chats %}
+                <li><strong>You:</strong> {{ chat.user_message }}</li>
+                <li><strong>AI:</strong> {{ chat.ai_reply }}</li>
+                <hr>
+            {% endfor %}
+        </ul>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" name="message" placeholder="Enter Your Message">
+        <button type="submit">Send</button>
+    </form>
+</body>
+</html>
