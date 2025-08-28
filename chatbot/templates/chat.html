@@ -16,8 +16,23 @@
         </ul>
     <form method="POST">
         {% csrf_token %}
+        <select name="topics">
+            <option value="travel" {% if topics == "travel" %}selected{% endif %}>Travel</option>
+            <option value="business" {% if topics == "business" %}selected{% endif %}>Business</option>
+            <option value="academic" {% if topics == "academic" %}selected{% endif %}>Academic</option>
+            <option value="conversational" {% if topics == "conversational" %}selected{% endif %}>Conversational</option>
+        </select>
         <input type="text" name="message" placeholder="Enter Your Message">
         <button type="submit">Send</button>
     </form>
+    {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+                <div class="alert {{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 </body>
 </html>
