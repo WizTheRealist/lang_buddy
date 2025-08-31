@@ -21,9 +21,14 @@ def chat_view(request):
         selected_topic = topic
 
         try:
+            # new
+            conversation = request.session.get("conversation", [])
+            conversation.append({"role": "user", "parts": [{"text": user_message}]})
+            conversation = conversation[-10:]
+
             response = client.models.generate_content(
                 model="gemini-2.0-flash-lite",
-                contents=user_message,
+                contents=[m["parts"][0]["text"] for m in conversation],       # new: user_message
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(thinking_budget=0),
                     system_instruction=(f"Your name is John. You are a friendly English Tutor for {topic} conversations."
@@ -33,6 +38,8 @@ def chat_view(request):
                 ),
             )
             ai_reply = response.text
+            conversation.append({"role": "model", "parts": [{"text": ai_reply}]})     # new
+            request.session["conversation"] = conversation      #new
 
             # create database to store messages
             if user_message or ai_reply:
