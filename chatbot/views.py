@@ -5,11 +5,30 @@ from google import genai
 from google.genai import types
 from .models import Conversation
 from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.decorators import login_required
 
 logger = logging.getLogger(__name__)    # for logging errors
 
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
 # Create your views here.
+def home(request):
+    return render(request, 'home.html')
+
+def signup(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.post)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect("chat_view")
+    else:
+        form = UserCreationForm()
+    return render(request, 'signup.html', {"form": form})
+
+@login_required
 def chat_view(request):
 
     ai_reply = None
@@ -44,6 +63,7 @@ def chat_view(request):
             # create database to store messages
             if user_message or ai_reply:
                 Conversation.objects.create(
+                    user=request.user,
                     user_message=user_message,
                     ai_reply=ai_reply,
                     topics=topic
@@ -63,7 +83,7 @@ def chat_view(request):
         selected_topic = request.session.get('selected_topic')
     
     # display the last ten converstions by date
-    chats = Conversation.objects.all().order_by('created_at')[:10]
+    chats = Conversation.objects.filter(user=request.user).order_by('created_at')[:10]
 
     return render(request, 'chat.html', {
         "chats": chats,
