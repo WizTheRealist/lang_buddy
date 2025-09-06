@@ -4,13 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'assets/css/chat.css' %}">
     <title>LangBuddy</title>
 </head>
 <body>
     <div class="chat-container">
-        <div class="chat-header">Your Personal English Tutor</div>
-
+        <div class="chat-header">
+            <span>{{ user.username }}'s AI</span>
+            <form method="POST" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
+        </div>
         <div class="chat-box">
             {% for chat in chats %}
                 <div class="message user">{{ chat.user_message }}</div>
@@ -20,14 +25,15 @@
 
         <form method="POST" class="chat-form">
             {% csrf_token %}
-            <select name="topics">
+            <select name="topics" required>
+                <option value="" disabled {% if not topics %}selected{% endif %}>-- Select a Topic --</option>
                 <option value="travel" {% if topics == "travel" %}selected{% endif %}>Travel</option>
                 <option value="business" {% if topics == "business" %}selected{% endif %}>Business</option>
                 <option value="academic" {% if topics == "academic" %}selected{% endif %}>Academic</option>
                 <option value="conversational" {% if topics == "conversational" %}selected{% endif %}>Conversational</option>
             </select>
-            <input type="text" name="message" placeholder="Enter your message..." required>
-            <button type="submit">Send</button>
+            <textarea id="chat-message" name="message" placeholder="Enter your message..." rows="1" required></textarea>
+            <button id="send-btn" type="submit">Send</button>
         </form>
 
         {% if messages %}
@@ -40,5 +46,40 @@
             </div>
         {% endif %}
     </div>
+
+    <script>
+        document.addEventListener("input", function (e) {
+            if (e.target.tagName.toLowerCase() === "textarea") {
+                e.target.style.height = "auto";   // reset to shrink if text is deleted
+                e.target.style.height = e.target.scrollHeight + "px"; // expand as needed
+            }
+        });
+    </script>
+    <script>
+        document.addEventListener("input", function (e) {
+            if (e.target.tagName.toLowerCase() === "textarea") {
+                e.target.style.height = "auto";  
+                e.target.style.height = e.target.scrollHeight + "px"; 
+            }
+        });
+        
+        document.addEventListener("keydown", function (e) {
+            if (e.target.tagName.toLowerCase() === "textarea") {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault(); // stop newline
+                    e.target.form.submit(); // submit form
+                }
+            }
+        });
+    </script>
+    <script>
+        const textarea = document.getElementById("chat-message");
+        const sendBtn = document.getElementById("send-btn");
+    
+        textarea.addEventListener("input", () => {
+            // Enable/disable send button based on text
+            sendBtn.disabled = textarea.value.trim().length === 0;
+        });
+    </script>
 </body>
 </html>

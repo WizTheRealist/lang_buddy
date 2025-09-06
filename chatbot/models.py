@@ -9,7 +9,7 @@ class Conversation(models.Model):
         ('academic', 'Academic'),
         ('conversational', 'Conversational')
     ]
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     user_message = models.TextField()
     ai_reply = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,16 +1,35 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
     <title>Login</title>
 </head>
 <body>
-    <h1>Login</h1>
-    <form method="POST">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Login</button>
-    </form>
+    <div class="row res">
+        <div class="fb-form res">
+            <div class="card">
+                <h1>LangBuddy</h1>
+                <p>Your Personal English Language Tutor</p>
+            </div>
+            <form method="POST">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <div class="fb-submit">
+                    <button type="submit" class="login">Login</button>
+                </div>
+                <br><hr>
+                <small>New User? Sign up below.</small>
+                <div class="button">
+                    <a href="{% url 'signup' %}">Create New Account</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <footer>
+        <p>All Rights Reserved.</p>
+    </footer>
 </body>
 </html>
