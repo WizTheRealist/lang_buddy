@@ -14,8 +14,6 @@ from django.contrib.auth.decorators import login_required
 
 logger = logging.getLogger(__name__)    # for logging errors
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
 # Create your views here.
 
 def signup(request):
@@ -38,65 +36,59 @@ class CustomLoginView(LoginView):
 @login_required
 def chat_view(request):
 
-    ai_reply = None
-    selected_topic = None
-
-    if request.method == "POST":
-        user_message = request.POST.get('message')
-        topic = request.POST.get('topics')
-        selected_topic = topic
-
-        try:
-            # store conversation in a session, append user_message, and use the last 10 user messages to build context
-            conversation = request.session.get("conversation", [])
-            conversation.append({"role": "user", "parts": [{"text": user_message}]})
-            conversation = conversation[-10:]
-
-            # instructions for Gemini on how to generate content
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
-                contents=[m["parts"][0]["text"] for m in conversation],       # build conversation context from user_message line 52
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                    system_instruction=(f"Your name is John. You are a friendly English Tutor for {topic} conversations."
-                                        "Do not greet the learner at the start of every reply."
-                                        "Continue naturally from the conversation context."
-                                        "Keep responses short, clear, and focused on practicing English.")
-                ),
-            )
-            # generate AI response, append AI response to conversation, store AI response in session for conversation context
-            ai_reply = response.text
-            conversation.append({"role": "model", "parts": [{"text": ai_reply}]})
-            request.session["conversation"] = conversation
-
-            # create database to store user records, topics, and messages
-            if user_message or ai_reply:
-                Conversation.objects.create(
-                    user=request.user,
-                    user_message=user_message,
-                    ai_reply=ai_reply,
-                    topics=topic
-                )
-                # persist chosen topic across the redirect
-                request.session['selected_topic'] = topic
-
-            return redirect("chat_view")
-        
-        except Exception as e:
-            logger.error(f"Error in chat_view: {e}", exc_info=True)                 # error log with traceback
-            messages.error(request, "Oops! Something went wrong please try again.") # user_friendly feedback
-            ai_reply = "Sorry, I couldn't process your request."
-
-    else:
-        # GET: restore the previously chosen topic from session (if any)
-        selected_topic = request.session.get('selected_topic')
+    selected_topic = request.session.get("selected_topic")
     
-    # use sliding window to display the last ten converstions by date
-    chats = Conversation.objects.filter(user=request.user).order_by('-created_at')[:10]
+    # use sliding window to display the last ten converstions for selected topic by date
+    if selected_topic:
+        chats = Conversation.objects.filter(
+            user=request.user,
+            topics=selected_topic
+        ).order_by('-created_at')[:10]
+    else:
+        chats = Conversation.objects.filter(
+            user=request.user
+            ).order_by('-created_at')[:10]
+    
+    # Reverse for chronological order
     chats = chats[::-1]
 
     return render(request, 'chat.html', {
         "chats": chats,
-        "ai_reply": ai_reply,
         "topics": selected_topic
         })
+
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def update_session_topic(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            topic = data.get('topic')
+            
+            if topic:
+                # Update session with new topic
+                request.session['selected_topic'] = topic
+                request.session.save()  # Force save the session
+                
+                return JsonResponse({
+                    'success': True, 
+                    'topic': topic
+                })
+            else:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'No topic provided'
+                })
+                
+        except Exception as e:
+            return JsonResponse({
+                'success': False, 
+                'error': str(e)
+            })
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+

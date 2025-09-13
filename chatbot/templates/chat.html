@@ -10,76 +10,189 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <span>{{ user.username }}'s AI</span>
+            <span>{{ user.username|title }}'s {% if topics %}{{ topics|title }}{% endif %} lesson</span>
             <form method="POST" action="{% url 'logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="logout-btn">Logout</button>
             </form>
         </div>
-        <div class="chat-box">
+
+        <div id="chat-box" class="chat-box">
             {% for chat in chats %}
                 <div class="message user">{{ chat.user_message }}</div>
                 <div class="message ai">{{ chat.ai_reply }}</div>
             {% endfor %}
         </div>
 
-        <form method="POST" class="chat-form">
+        <!-- form still exists, but handled by JS -->
+        <form id="chat-form" class="chat-form">
             {% csrf_token %}
-            <select name="topics" required>
+            <select id="topic-select" name="topics" required>
                 <option value="" disabled {% if not topics %}selected{% endif %}>-- Select a Topic --</option>
                 <option value="travel" {% if topics == "travel" %}selected{% endif %}>Travel</option>
                 <option value="business" {% if topics == "business" %}selected{% endif %}>Business</option>
                 <option value="academic" {% if topics == "academic" %}selected{% endif %}>Academic</option>
                 <option value="conversational" {% if topics == "conversational" %}selected{% endif %}>Conversational</option>
-            </select>
-            <textarea id="chat-message" name="message" placeholder="Enter your message..." rows="1" required></textarea>
-            <button id="send-btn" type="submit">Send</button>
+            </select>            
+            <textarea id="chat-message" placeholder="Enter your message..." rows="1" required></textarea>
+            <button id="send-btn" type="submit" disabled>Send</button>
         </form>
-
-        {% if messages %}
-            <div class="messages">
-                {% for message in messages %}
-                    <div class="alert {{ message.tags }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
     </div>
 
     <script>
+        // --- Expand textarea as the user types ---
         document.addEventListener("input", function (e) {
             if (e.target.tagName.toLowerCase() === "textarea") {
-                e.target.style.height = "auto";   // reset to shrink if text is deleted
-                e.target.style.height = e.target.scrollHeight + "px"; // expand as needed
+                // Reset the height (so shrinking works when deleting text)
+                e.target.style.height = "auto";
+                // Expand height to fit the text being typed
+                e.target.style.height = e.target.scrollHeight + "px";
             }
         });
-    </script>
-    <script>
-        document.addEventListener("input", function (e) {
-            if (e.target.tagName.toLowerCase() === "textarea") {
-                e.target.style.height = "auto";  
-                e.target.style.height = e.target.scrollHeight + "px"; 
-            }
-        });
-        
+    
+        // --- Allow Enter to send the message (without adding a new line) ---
         document.addEventListener("keydown", function (e) {
             if (e.target.tagName.toLowerCase() === "textarea") {
+                // If user presses Enter but not Shift+Enter
                 if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault(); // stop newline
-                    e.target.form.submit(); // submit form
+                    e.preventDefault(); // Prevent newline from being added
+                    // Trigger the form submission manually
+                    document.getElementById("chat-form").dispatchEvent(new Event("submit"));
                 }
             }
         });
-    </script>
-    <script>
+    
+        // --- Disable the send button if textarea is empty ---
         const textarea = document.getElementById("chat-message");
         const sendBtn = document.getElementById("send-btn");
-    
         textarea.addEventListener("input", () => {
-            // Enable/disable send button based on text
+            // Only enable the button when user typed something
             sendBtn.disabled = textarea.value.trim().length === 0;
         });
+    
+        // --- WebSocket connection setup ---
+        // Create a WebSocket that connects to Django Channels consumer
+        const socket = new WebSocket("ws://" + window.location.host + "/ws/chat/");
+    
+        // Get references to HTML elements we need
+        const chatBox = document.getElementById("chat-box");   // container for messages
+        const chatForm = document.getElementById("chat-form"); // chat form
+        const topicSelect = document.getElementById("topic-select"); // topic dropdown
+    
+        // Track current topic to detect changes
+        let currentTopic = topicSelect.value;
+        console.log('Initial topic from DOM:', currentTopic);
+    
+        // --- Handle topic changes (SINGLE EVENT LISTENER) ---
+        topicSelect.addEventListener("change", function(e) {
+            const newTopic = e.target.value;
+            
+            // If topic actually changed, reset conversation and reload
+            if (newTopic !== currentTopic) {
+                currentTopic = newTopic;
+                
+                // Get CSRF token
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                // Update session via AJAX first (more reliable)
+                fetch('/update_session_topic/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        topic: newTopic
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Session updated successfully:', data.topic);
+                        
+                        // Clear the chat box visually first
+                        chatBox.innerHTML = '';
+                        
+                        // Send WebSocket reset message
+                        socket.send(JSON.stringify({
+                            action: 'reset_conversation',
+                            topics: newTopic
+                        }));
+                        
+                        // Reload page to show chat history for new topic
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 200);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating session:', error);
+                    // Fallback: still try to reload
+                    window.location.reload();
+                });
+                
+                console.log('Topic changed to:', newTopic);
+            }
+        });
+    
+        // --- Handle messages received from the server ---
+        socket.onmessage = function(e) {
+            // Parse JSON message received from consumer
+            const data = JSON.parse(e.data);
+    
+            if (data.error) {
+                // If server sent an error, show it in an alert
+                alert(data.error);
+                return;
+            }
+            
+            // Handle reset confirmation
+            if (data.action === 'conversation_reset') {
+                console.log('Conversation reset confirmed for topic:', data.topic);
+                return;
+            }
+    
+            // Only show AI reply - user message was already displayed immediately
+            if (data.ai_reply) {
+                const aiMsg = document.createElement("div");
+                aiMsg.classList.add("message", "ai");
+                aiMsg.textContent = data.ai_reply;
+                
+                chatBox.appendChild(aiMsg);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        };
+    
+        // --- Handle sending messages from the form ---
+        chatForm.addEventListener("submit", function(e) {
+            e.preventDefault(); // stop form from reloading the page
+    
+            const message = textarea.value.trim(); // user input
+            const topic = topicSelect.value;       // chosen topic
+    
+            if (message && topic) {
+                // Show user message immediately
+                const userMsg = document.createElement("div");
+                userMsg.classList.add("message", "user");
+                userMsg.textContent = message;
+                chatBox.appendChild(userMsg);
+                
+                // Auto scroll to show the new user message
+                chatBox.scrollTop = chatBox.scrollHeight;
+                
+                // Send data to the server as JSON
+                socket.send(JSON.stringify({
+                    action: 'send_message',
+                    message: message,
+                    topics: topic
+                }));
+    
+                // Clear textarea and disable send button again
+                textarea.value = "";
+                sendBtn.disabled = true;
+            }
+        });
     </script>
+
 </body>
 </html>

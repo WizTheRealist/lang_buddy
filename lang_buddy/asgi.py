@@ -8,9 +8,23 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 
 import os
-
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'lang_buddy.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "lang_buddy.settings")
 
-application = get_asgi_application()
+# First, set up Django
+django_asgi_app = get_asgi_application()
+
+# Now safe to import Channels stuff
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+import chatbot.routing
+
+application = ProtocolTypeRouter({
+    "http": django_asgi_app,
+    "websocket": AuthMiddlewareStack(
+        URLRouter(
+            chatbot.routing.websocket_urlpatterns
+        )
+    ),
+})
