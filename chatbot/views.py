@@ -92,3 +92,47 @@ def update_session_topic(request):
     
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
+
+from django.db.models import Count
+from datetime import date, timedelta, timezone
+from .models import UserProgress, DailyActivity
+
+@login_required
+def dashboard_view(request):
+    """
+    Display user's learning progress dashboard with statistics and recent activity.
+    """
+    try:
+    # Get or create user progress
+        progress, created = UserProgress.objects.get_or_create(user=request.user)
+        
+        # Get recent activity (last 7 days)
+        seven_days_ago = date.today() - timedelta(days=7)
+        recent_activity = DailyActivity.objects.filter(
+            user=request.user,
+            date__gte=seven_days_ago
+        ).order_by('-date')
+        
+        # Get topic statistics
+        topic_stats = Conversation.objects.filter(user=request.user).values('topics').annotate(
+            count=Count('topics')
+        ).order_by('-count')
+        
+        # Calculate this week's messages
+        week_messages = sum(activity.messages_count for activity in recent_activity)
+        
+        context = {
+            'progress': progress,
+            'recent_activity': recent_activity,
+            'topic_stats': topic_stats,
+            'week_messages': week_messages,
+        }
+
+    except Exception as e:
+        # Log the error and show a user-friendly message
+        logger.error(f"Dashboard error for user {request.user.id}: {e}")
+        messages.error(request, "Unable to load dashboard. Please try again.")
+        return redirect('chat_view')
+    
+    return render(request, 'dashboard.html', context)
+

@@ -5,7 +5,12 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from django.contrib.auth.models import AnonymousUser
 from asgiref.sync import sync_to_async
 from google.genai import types
+from django.utils import timezone
+from .models import Conversation
+from datetime import date
 from django.conf import settings
+from django.db.models import Count
+
 
 
 # for logging errors
@@ -13,6 +18,42 @@ logger = logging.getLogger(__name__)
 
 # initialize gemini client
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+
+async def update_user_progress(user, topic):
+    """Update user progress after saving a conversation"""
+    from .models import UserProgress, DailyActivity
+    
+    # Get or create user progress
+    progress, created = await sync_to_async(UserProgress.objects.get_or_create)(user=user)
+    progress.total_messages += 1
+    progress.last_activity = timezone.now()
+    
+    # Update favorite topic - get topic counts
+    topic_counts = await sync_to_async(
+        lambda: Conversation.objects.filter(user=user).values('topics').annotate(
+            count=Count('topics')
+        ).order_by('-count').first()
+    )()
+    
+    if topic_counts:
+        progress.favorite_topic = topic_counts['topics']
+    
+    await sync_to_async(progress.save)()
+    
+    # Update daily activity
+    today = date.today()
+    daily, created = await sync_to_async(DailyActivity.objects.get_or_create)(
+        user=user, 
+        date=today,
+        defaults={'messages_count': 0, 'topics_practiced': []}
+    )
+    daily.messages_count += 1
+    
+    if topic not in daily.topics_practiced:
+        daily.topics_practiced.append(topic)
+    
+    await sync_to_async(daily.save)()
 
 # A websocket class that inherits from a parent websocket class
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -98,6 +139,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         ai_reply=ai_reply,
                         topics=topic
                     )
+
+                    await update_user_progress(self.scope["user"], topic)
+
 
                 # send response to client
                 await self.send(text_data=json.dumps({

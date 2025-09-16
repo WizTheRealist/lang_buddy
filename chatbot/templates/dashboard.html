@@ -1,0 +1,170 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'assets/css/dashboard.css' %}">
+    <title>Document</title>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="toggle-btn" onclick="toggleSidebar()">
+                    <span id="toggle-icon">◀</span>
+                </button>
+                <h2 class="app-title">LangBuddy</h2>
+                <p class="app-subtitle">English Practice</p>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'chat_view' %}" class="nav-link">
+                        <span class="nav-icon">💬</span>
+                        <span class="nav-text">Start Practice</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="document.getElementById('logout-form').submit(); return false;">
+                        <span class="nav-icon">🚪</span>
+                        <span class="nav-text">Logout</span>
+                    </a>
+                    <form id="logout-form" method="post" action="{% url 'logout' %}" style="display: none;">
+                        {% csrf_token %}
+                    </form>
+                </li>
+            </ul>
+        </nav>
+        
+        <!-- Mobile Overlay -->
+        <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <button class="mobile-toggle" onclick="openMobileSidebar()">☰</button>
+                    <h1 class="page-title">Dashboard</h1>
+                </div>
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username.0|upper }}</div>
+                    <span>{{ user.username }}</span>
+                </div>
+            </header>
+            
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner">
+                    <h1>Welcome back, {{ user.username|title }}! 🎉</h1>
+                    <p>Ready to continue your English learning journey?</p>
+                    <a href="{% url 'chat_view' %}" class="start-btn">Start Practicing Now</a>
+                </div>
+                
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-number">{{ progress.total_messages }}</span>
+                        <div class="stat-label">Total Messages</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <span class="stat-number">{{ week_messages }}</span>
+                        <div class="stat-label">This Week</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <span class="stat-number">{{ topic_stats|length }}</span>
+                        <div class="stat-label">Topics Practiced</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <span class="stat-number">{{ recent_activity|length }}</span>
+                        <div class="stat-label">Active Days (7d)</div>
+                    </div>
+                </div>
+                
+                <!-- Content Grid -->
+                <div class="content-grid">
+                    <!-- Topics Section -->
+                    {% if topic_stats %}
+                    <div class="section-card">
+                        <h3 class="section-title">Your Practice Topics</h3>
+                        {% for stat in topic_stats %}
+                            <div class="topic-item">
+                                <span class="topic-name">{{ stat.topics }}</span>
+                                <span class="topic-count">{{ stat.count }} conversation{{ stat.count|pluralize }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Activity Section -->
+                    <div class="section-card">
+                        <h3 class="section-title">Recent Activity</h3>
+                        {% if recent_activity %}
+                            {% for activity in recent_activity %}
+                                <div class="activity-item">
+                                    <div class="activity-date">{{ activity.date|date:"M j, Y" }}</div>
+                                    <div class="activity-details">{{ activity.messages_count }} message{{ activity.messages_count|pluralize }}</div>
+                                    {% if activity.topics_practiced %}
+                                        <div class="activity-topics">Topics: {{ activity.topics_practiced|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">
+                                <h4>Ready to Start?</h4>
+                                <p>You haven't started practicing yet. Click "Start Practicing" to begin your English learning journey!</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggleIcon = document.getElementById('toggle-icon');
+            
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                toggleIcon.textContent = '▶';
+            } else {
+                toggleIcon.textContent = '◀';
+            }
+        }
+        
+        function openMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.add('mobile-open');
+            overlay.classList.add('show');
+        }
+        
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('show');
+        }
+        
+        // Close mobile sidebar when clicking nav links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', closeMobileSidebar);
+        });
+    </script>
