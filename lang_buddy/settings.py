@@ -35,11 +35,11 @@ DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    'lang_buddy.onrender.com',  # Allow all Render subdomains
+    'lang-buddy.onrender.com',  # Allow all Render subdomains
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://lang_buddy.onrender.com"
+    "https://lang-buddy.onrender.com"
 ]
 
 
