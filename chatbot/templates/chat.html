@@ -8,44 +8,128 @@
     <title>LangBuddy</title>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">
-            <span>{{ user.username|title }}'s {% if topics %}{{ topics|title }}{% endif %} lesson</span>
-            <form method="POST" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button type="submit" class="logout-btn">Logout</button>
-            </form>
-        </div>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="toggle-btn" onclick="toggleSidebar()">
+                    <span id="toggle-icon">◀</span>
+                </button>
+                <h2 class="app-title">LangBuddy</h2>
+                <p class="app-subtitle">English Practice</p>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{% url 'dashboard' %}" class="nav-link">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link active">
+                        <span class="nav-icon">💬</span>
+                        <span class="nav-text">Practice Chat</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="document.getElementById('logout-form').submit(); return false;">
+                        <span class="nav-icon">🚪</span>
+                        <span class="nav-text">Logout</span>
+                    </a>
+                    <form id="logout-form" method="post" action="{% url 'logout' %}" style="display: none;">
+                        {% csrf_token %}
+                    </form>
+                </li>
+            </ul>
+        </nav>
+        
+        <!-- Mobile Overlay -->
+        <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="mobile-toggle" onclick="openMobileSidebar()">☰</button>
+                    <h1 class="page-title">Practice Chat</h1>
+                </div>
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username.0|upper }}</div>
+                    <span>{{ user.username }}</span>
+                </div>
+            </header>
+            
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <div class="chat-header">
+                    <span>{{ user.username|title }}'s {% if topics %}{{ topics|title }}{% endif %} lesson</span>
+                </div>
 
-        <div id="chat-box" class="chat-box">
-            {% for chat in chats %}
-                <div class="message user">{{ chat.user_message }}</div>
-                <div class="message ai">{{ chat.ai_reply }}</div>
-            {% endfor %}
-        </div>
+                <div id="chat-box" class="chat-box">
+                    {% for chat in chats %}
+                        <div class="message user">{{ chat.user_message }}</div>
+                        <div class="message ai">{{ chat.ai_reply }}</div>
+                    {% endfor %}
+                </div>
 
-        <!-- form still exists, but handled by JS -->
-        <form id="chat-form" class="chat-form">
-            {% csrf_token %}
-            <select id="topic-select" name="topics" required>
-                <option value="" disabled {% if not topics %}selected{% endif %}>-- Select a Topic --</option>
-                <option value="travel" {% if topics == "travel" %}selected{% endif %}>Travel</option>
-                <option value="business" {% if topics == "business" %}selected{% endif %}>Business</option>
-                <option value="academic" {% if topics == "academic" %}selected{% endif %}>Academic</option>
-                <option value="conversational" {% if topics == "conversational" %}selected{% endif %}>Conversational</option>
-            </select>            
-            <textarea id="chat-message" placeholder="Enter your message..." rows="1" required></textarea>
-            <button id="send-btn" type="submit" disabled>Send</button>
-        </form>
+                <!-- Chat Form -->
+                <form id="chat-form" class="chat-form">
+                    {% csrf_token %}
+                    <select id="topic-select" name="topics" required>
+                        <option value="" disabled {% if not topics %}selected{% endif %}>-- Select Topic --</option>
+                        <option value="travel" {% if topics == "travel" %}selected{% endif %}>Travel</option>
+                        <option value="business" {% if topics == "business" %}selected{% endif %}>Business</option>
+                        <option value="academic" {% if topics == "academic" %}selected{% endif %}>Academic</option>
+                        <option value="conversational" {% if topics == "conversational" %}selected{% endif %}>Conversational</option>
+                    </select>            
+                    <textarea id="chat-message" placeholder="Type your message..." rows="1" required></textarea>
+                    <button id="send-btn" type="submit" disabled>Send</button>
+                </form>
+            </div>
+        </main>
     </div>
 
     <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggleIcon = document.getElementById('toggle-icon');
+            
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                toggleIcon.textContent = '▶';
+            } else {
+                toggleIcon.textContent = '◀';
+            }
+        }
+        
+        function openMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.add('mobile-open');
+            overlay.classList.add('show');
+        }
+        
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('show');
+        }
+        
+        // Close mobile sidebar when clicking nav links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', closeMobileSidebar);
+        });
+
         // --- Expand textarea as the user types ---
         document.addEventListener("input", function (e) {
             if (e.target.tagName.toLowerCase() === "textarea") {
-                // Reset the height (so shrinking works when deleting text)
                 e.target.style.height = "auto";
-                // Expand height to fit the text being typed
                 e.target.style.height = e.target.scrollHeight + "px";
             }
         });
@@ -53,10 +137,8 @@
         // --- Allow Enter to send the message (without adding a new line) ---
         document.addEventListener("keydown", function (e) {
             if (e.target.tagName.toLowerCase() === "textarea") {
-                // If user presses Enter but not Shift+Enter
                 if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault(); // Prevent newline from being added
-                    // Trigger the form submission manually
+                    e.preventDefault();
                     document.getElementById("chat-form").dispatchEvent(new Event("submit"));
                 }
             }
@@ -66,37 +148,31 @@
         const textarea = document.getElementById("chat-message");
         const sendBtn = document.getElementById("send-btn");
         textarea.addEventListener("input", () => {
-            // Only enable the button when user typed something
             sendBtn.disabled = textarea.value.trim().length === 0;
         });
     
         // --- WebSocket connection setup ---
-        // Create a WebSocket that connects to Django Channels consumer
-        // const socket = new WebSocket("ws://" + window.location.host + "/ws/chat/");
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const socket = new WebSocket(protocol + "//" + window.location.host + "/ws/chat/");
     
         // Get references to HTML elements we need
-        const chatBox = document.getElementById("chat-box");   // container for messages
-        const chatForm = document.getElementById("chat-form"); // chat form
-        const topicSelect = document.getElementById("topic-select"); // topic dropdown
+        const chatBox = document.getElementById("chat-box");
+        const chatForm = document.getElementById("chat-form");
+        const topicSelect = document.getElementById("topic-select");
     
         // Track current topic to detect changes
         let currentTopic = topicSelect.value;
         console.log('Initial topic from DOM:', currentTopic);
     
-        // --- Handle topic changes (SINGLE EVENT LISTENER) ---
+        // --- Handle topic changes ---
         topicSelect.addEventListener("change", function(e) {
             const newTopic = e.target.value;
             
-            // If topic actually changed, reset conversation and reload
             if (newTopic !== currentTopic) {
                 currentTopic = newTopic;
                 
-                // Get CSRF token
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
                 
-                // Update session via AJAX first (more reliable)
                 fetch('/update_session_topic/', {
                     method: 'POST',
                     headers: {
@@ -112,16 +188,13 @@
                     if (data.success) {
                         console.log('Session updated successfully:', data.topic);
                         
-                        // Clear the chat box visually first
                         chatBox.innerHTML = '';
                         
-                        // Send WebSocket reset message
                         socket.send(JSON.stringify({
                             action: 'reset_conversation',
                             topics: newTopic
                         }));
                         
-                        // Reload page to show chat history for new topic
                         setTimeout(() => {
                             window.location.reload();
                         }, 200);
@@ -129,7 +202,6 @@
                 })
                 .catch(error => {
                     console.error('Error updating session:', error);
-                    // Fallback: still try to reload
                     window.location.reload();
                 });
                 
@@ -139,22 +211,18 @@
     
         // --- Handle messages received from the server ---
         socket.onmessage = function(e) {
-            // Parse JSON message received from consumer
             const data = JSON.parse(e.data);
     
             if (data.error) {
-                // If server sent an error, show it in an alert
                 alert(data.error);
                 return;
             }
             
-            // Handle reset confirmation
             if (data.action === 'conversation_reset') {
                 console.log('Conversation reset confirmed for topic:', data.topic);
                 return;
             }
     
-            // Only show AI reply - user message was already displayed immediately
             if (data.ai_reply) {
                 const aiMsg = document.createElement("div");
                 aiMsg.classList.add("message", "ai");
@@ -167,34 +235,30 @@
     
         // --- Handle sending messages from the form ---
         chatForm.addEventListener("submit", function(e) {
-            e.preventDefault(); // stop form from reloading the page
+            e.preventDefault();
     
-            const message = textarea.value.trim(); // user input
-            const topic = topicSelect.value;       // chosen topic
+            const message = textarea.value.trim();
+            const topic = topicSelect.value;
     
             if (message && topic) {
-                // Show user message immediately
                 const userMsg = document.createElement("div");
                 userMsg.classList.add("message", "user");
                 userMsg.textContent = message;
                 chatBox.appendChild(userMsg);
                 
-                // Auto scroll to show the new user message
                 chatBox.scrollTop = chatBox.scrollHeight;
                 
-                // Send data to the server as JSON
                 socket.send(JSON.stringify({
                     action: 'send_message',
                     message: message,
                     topics: topic
                 }));
     
-                // Clear textarea and disable send button again
                 textarea.value = "";
                 sendBtn.disabled = true;
+                textarea.style.height = "auto";
             }
         });
     </script>
-
 </body>
 </html>
