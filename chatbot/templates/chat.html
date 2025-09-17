@@ -73,6 +73,8 @@
         // --- WebSocket connection setup ---
         // Create a WebSocket that connects to Django Channels consumer
         // const socket = new WebSocket("ws://" + window.location.host + "/ws/chat/");
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(protocol + "//" + window.location.host + "/ws/chat/");
     
         // Get references to HTML elements we need
         const chatBox = document.getElementById("chat-box");   // container for messages
